@@ -1,6 +1,8 @@
 Flux File Tree Example
 ----------------------
 
+The following is the live coding part to the presentation ["Introduction to Flux"](https://speakerdeck.com/jviereck/introduction-to-flux).
+
 To run the example, install the dependencies using `npm` via:
 
 ```bash
