@@ -22,3 +22,7 @@ http://localhost:8080/webpack-dev-server/
 There is an implementation based on Facebook's flux and one based on Flummox.
 The FB one is inside of `scripts/index_fb.js` and the Flummox one under
 `scripts/index_flummox.js`.
+
+The flummox example doesn't use FluxComponent as described
+[here](http://acdlite.github.io/flummox/docs/api/fluxcomponent) yet. PR to
+make the example use it are more than welcome :)
