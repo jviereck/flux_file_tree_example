@@ -18,3 +18,7 @@ The webpage is then served at:
 ```
 http://localhost:8080/webpack-dev-server/
 ```
+
+There is an implementation based on Facebook's flux and one based on Flummox.
+The FB one is inside of `scripts/index_fb.js` and the Flummox one under
+`scripts/index_flummox.js`.
