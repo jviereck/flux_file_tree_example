@@ -4,17 +4,43 @@
 var invariant = require('invariant');
 var keyMirror = require('keymirror');
 
-var Dispatcher = require('flux').Dispatcher;
-var EventEmitter = require('events').EventEmitter;
 var React = require('react');
 
+// FLUX OVERVIEW:
+// -------------
 //
+//                                      +--------+
+//                         +------------|-Action-|---------+
+//                         |            +--------+         |
+//                         |                               ^
+//                         |                        User Interaction
+//   +---------+     +-----v------+     +--------+     +-------+
+//   | Action  | --> | Dispatcher | --> | Stores | --> | Views |
+//   +---------+     +------------+     +--------+     +-------+
+//
+//     ^^ For initial payload or when recieving data/signal from the server.
+//
+
+// For this demo we are using Facebook's Flux implementation. The implementation
+// comes only with the bare minimum: Only the dispatcher for a Flux system is
+// provided. The dispatcher checks there are no two actions dispatched at the
+// same time.
+var Dispatcher = require('flux').Dispatcher;
+
+// To keep the demo simple, no real backend server is used. Instead the
+// backend is "faked" and the `backend.listDir(aPath)` method works on
+// a statically defined list of folders.
 var backend = require('./fake_backend');
 
+// Defines a list of constants. The `ActionTypes` are used to identify
+// the message types flowing through the system.
+// `keyMirror` is a nice util and will replace the RHS value with the
+// key of the object - e.g. `keyMirror({a:NULL}) -returns-> {a: "a"}`;
 var CONSTANTS = {
   ActionTypes: keyMirror({
     LIST_DIR_INIT: null,
     LIST_DIR_RESOLVED: null,
+    LIST_DIR_REJECTED: null
   }),
 
   EventTypes: keyMirror({
@@ -22,27 +48,20 @@ var CONSTANTS = {
   })
 };
 
+// Cache the constants in local variables for convenience.
 var EventTypes = CONSTANTS.EventTypes;
 var ActionTypes = CONSTANTS.ActionTypes;
 
+// Get an instance of the dispatcher that will be used in our system to propagate
+// the actions through the system.
 var AppDispatcher = new Dispatcher();
 
-var createListDirAction = function(path) {
-  AppDispatcher.dispatch({
-    type: ActionTypes.LIST_DIR_INIT,
-    path: path
-  });
-
-  backend.listDir(path).then((res) => {
-    AppDispatcher.dispatch({
-      type: ActionTypes.LIST_DIR_RESOLVED,
-      response: res
-    });
-  });
-}
-
-
-class SimpleStore extends EventEmitter {
+// Because FB Flux only comes with the Dispatcher, coming up with the infrastructure
+// for the stores is the developers job. Here we create a very simple (and
+// therefore called `SimpleStore`) base Store implementation that other store
+// implementations can subclass and thereby provide from basic Store features
+// like emitting the cahnge event etc.
+class SimpleStore extends require('events').EventEmitter {
   emitChange() {
     this.emit(EventTypes.CHANGE, {});
   }
@@ -56,8 +75,62 @@ class SimpleStore extends EventEmitter {
   }
 }
 
-class FSStore extends SimpleStore {
+// =============================================================================
+// ACTION CREATOR
+// --------------
+
+// In their simpliest form Actions are represented by a plain JS object
+// where the different kind of actions are distinquished via the `type` field,
+// which holds one of the `CONSTANTS.ActionTypes` values.
+
+// This action creator will perform the actions about listing directories under
+// a given path. Because the request to the backend will come back async, this
+// action creator will dispatch one Action to signal the start of the request and
+// once the request comes back succesful or failing another action. Dispatching
+// the LIST_DIR_INIT is not only important to maybe update the UI (e.g. show a
+// loading spinner) but also to make the async request have a synchronise effect
+// and thereby ensure there is no more than one action in the Flux dispatcher
+// at the same time.
+var createListDirAction = function(path) {
+  // Notify the Stores about the begin of the listDir operation.
+  AppDispatcher.dispatch({
+    type: ActionTypes.LIST_DIR_INIT,
+    // Payload of the action.
+    path: path
+  });
+
+  // Execute the listDir operation on the backend and dispatch an action based
+  // on the outcome.
+  backend.listDir(path).then((res) => {
+    // If we got here, then the request to the server was succesful.
+
+    AppDispatcher.dispatch({
+      type: ActionTypes.LIST_DIR_RESOLVED,
+      // Payload of the action.
+      response: res
+    });
+  }, (err) => {
+    // If we got here, then there was an error wile making the request to the server.
+
+    AppDispatcher.dispatch({
+      type: ActionTypes.LIST_DIR_REJECTED,
+      // Payload of the action.
+      error: err
+    });
+  });
+}
+
+// =============================================================================
+// STORES
+// ------
+
+// A store listens to the Actions as recieved from the Dispatcher and updates
+// it internal state. Eventually it will dispatch an change event that the
+// view can listen to as signal to start rerendering.
+
+class FSStore extends SimpleStore { // FileSystemStore
   constructor() {
+    // The state is a mapping from paths to directory content at that path.
     this.state = { };
   }
 
@@ -70,9 +143,12 @@ class FSStore extends SimpleStore {
   }
 }
 
+// Create an instance of the FileSystemStore
 var fsStore = new FSStore();
 
-//fsStore.dispatchToken =
+// Wire the FileSystemStore to the Dispatcher. In our case, this is a simple
+// switch-case that looks for results to `LIST_DIR_RESOLVED`, stores the
+// payload of the action in the store and emits a change event.
 AppDispatcher.register(function(payload) {
   switch (payload.type) {
     case ActionTypes.LIST_DIR_RESOLVED:
@@ -81,6 +157,10 @@ AppDispatcher.register(function(payload) {
       break;
   }
 });
+
+// =============================================================================
+// VIEWS
+// -----
 
 class FileTreeEntry extends React.Component {
   constructor() {
@@ -135,7 +215,6 @@ class FileTreeEntry extends React.Component {
   }
 
   renderIndicator() {
-    var indicator = '';
     var isFolder = this.props.isFolder;
     if (isFolder && this.state.isExpanded) {
       return <span className="fileTree-li-tick">&#x25BC;</span>
@@ -162,13 +241,18 @@ class FileTreeContainer extends React.Component {
   }
 }
 
-// Init my app here.
+// =============================================================================
+// APP INITIALIZATION
+// ------------------
+
+// Initial payload example.
 createListDirAction('/');
 
 React.render(
   <div>
     <FileTreeContainer />
   </div>,
+
   // TIP: NEVER ever mount directly on the <body /> tag. In case you include a
   // third-party-script like Google Maps it is common they are making modificatons
   // to the <body> tag as well, which will screw up React eventually.
