@@ -1,0 +1,22 @@
+{
+  "name": "flux-file-tree-demo",
+  "version": "0.0.1",
+  "repository": {},
+  "dependencies": {
+    "babel-loader": "^4.0.0",
+    "flummox": "^3.0.1",
+    "flux": "^2.0.1",
+    "invariant": "^2.0.0",
+    "keymirror": "^0.1.1",
+    "loader-utils": "^0.2.6",
+    "react": "^0.13.0",
+    "webpack": "^1.5.3",
+    "webpack-dev-server": "^1.7.0"
+  },
+  "scripts": {
+    "start": "webpack-dev-server"
+  },
+  "author": "'Juilan Viereck' <julian.viereck@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {}
+}
